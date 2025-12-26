@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素咖啡店 - 咖啡师</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="header">
+        <h1>☕ 像素咖啡店</h1>
+        <div class="user-info">
+            <span id="userName"></span>
+            <span class="status" style="background:#228B22;color:white;">咖啡师</span>
+            <button class="btn btn-small" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="grid grid-3">
+            <!-- 待处理订单 -->
+            <div class="card">
+                <div class="card-title">📋 待处理订单</div>
+                <div id="pendingList"></div>
+                <div id="pendingEmpty" class="empty" style="display:none;">
+                    <div class="empty-icon">✓</div>
+                    <p>暂无待处理订单</p>
+                </div>
+            </div>
+
+            <!-- 制作中 -->
+            <div class="card">
+                <div class="card-title">🔥 制作中</div>
+                <div id="makingList"></div>
+                <div id="makingEmpty" class="empty" style="display:none;">
+                    <div class="empty-icon">☕</div>
+                    <p>暂无制作中订单</p>
+                </div>
+            </div>
+
+            <!-- 今日完成 -->
+            <div class="card">
+                <div class="card-title">✅ 今日完成</div>
+                <div id="completedList"></div>
+                <div id="completedEmpty" class="empty" style="display:none;">
+                    <div class="empty-icon">📊</div>
+                    <p>暂无已完成订单</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // 检查登录
+        var user = checkLogin();
+        if (user) {
+            document.getElementById('userName').textContent = user.nickname || user.username;
+        }
+
+        // 加载待处理订单
+        function loadPending() {
+            get('/order/pending', function(res) {
+                var list = document.getElementById('pendingList');
+                var empty = document.getElementById('pendingEmpty');
+
+                if (res.code === 200 && res.data && res.data.length > 0) {
+                    list.innerHTML = '';
+                    empty.style.display = 'none';
+
+                    res.data.forEach(function(order) {
+                        var div = document.createElement('div');
+                        div.className = 'order-item';
+
+                        var itemsStr = '';
+                        if (order.items) {
+                            order.items.forEach(function(item) {
+                                itemsStr += '<div>☕ ' + item.coffeeName + ' x' + item.quantity + '</div>';
+                            });
+                        }
+
+                        div.innerHTML = '<div class="order-header">' +
+                            '<span class="order-no">#' + order.orderNo.slice(-6) + '</span>' +
+                            '<span>' + (order.customerName || '顾客') + '</span>' +
+                            '</div>' +
+                            '<div style="margin: 10px 0;">' + itemsStr + '</div>' +
+                            (order.remark ? '<div style="font-size:12px; color:#808080; background:#F5DEB3; padding:8px; margin-bottom:10px;">备注: ' + order.remark + '</div>' : '') +
+                            '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                            '<span style="font-size:12px;">' + formatTime(order.createdAt) + '</span>' +
+                            '<button class="btn btn-primary btn-small" onclick="acceptOrder(' + order.id + ')">接单</button>' +
+                            '</div>';
+
+                        list.appendChild(div);
+                    });
+                } else {
+                    list.innerHTML = '';
+                    empty.style.display = 'block';
+                }
+            });
+        }
+
+        // 加载制作中订单
+        function loadMaking() {
+            get('/order/page?status=MAKING', function(res) {
+                var list = document.getElementById('makingList');
+                var empty = document.getElementById('makingEmpty');
+
+                if (res.code === 200 && res.data && res.data.records && res.data.records.length > 0) {
+                    list.innerHTML = '';
+                    empty.style.display = 'none';
+
+                    res.data.records.forEach(function(order) {
+                        var div = document.createElement('div');
+                        div.className = 'order-item';
+                        div.style.borderColor = '#FF8C00';
+                        div.style.background = 'rgba(255,140,0,0.1)';
+
+                        var itemsStr = '';
+                        if (order.items) {
+                            order.items.forEach(function(item) {
+                                itemsStr += '<div>☕ ' + item.coffeeName + ' x' + item.quantity + '</div>';
+                            });
+                        }
+
+                        div.innerHTML = '<div class="order-header">' +
+                            '<span class="order-no">#' + order.orderNo.slice(-6) + '</span>' +
+                            '<span class="status status-making">制作中</span>' +
+                            '</div>' +
+                            '<div style="margin: 10px 0;">' + itemsStr + '</div>' +
+                            '<button class="btn btn-primary" style="width:100%;" onclick="completeOrder(' + order.id + ')">完成制作</button>';
+
+                        list.appendChild(div);
+                    });
+                } else {
+                    list.innerHTML = '';
+                    empty.style.display = 'block';
+                }
+            });
+        }
+
+        // 加载已完成订单
+        function loadCompleted() {
+            get('/order/page?status=COMPLETED&pageSize=10', function(res) {
+                var list = document.getElementById('completedList');
+                var empty = document.getElementById('completedEmpty');
+
+                if (res.code === 200 && res.data && res.data.records && res.data.records.length > 0) {
+                    list.innerHTML = '';
+                    empty.style.display = 'none';
+
+                    res.data.records.forEach(function(order) {
+                        var itemsStr = '';
+                        if (order.items) {
+                            itemsStr = order.items.map(function(item) {
+                                return item.coffeeName;
+                            }).join(', ');
+                        }
+
+                        var div = document.createElement('div');
+                        div.style.cssText = 'display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px dashed #8B4513; font-size:13px;';
+                        div.innerHTML = '<span>#' + order.orderNo.slice(-6) + '</span>' +
+                            '<span style="flex:1; margin:0 10px; color:#808080;">' + itemsStr + '</span>' +
+                            '<span style="color:#8B4513;">¥' + order.totalAmount + '</span>';
+
+                        list.appendChild(div);
+                    });
+                } else {
+                    list.innerHTML = '';
+                    empty.style.display = 'block';
+                }
+            });
+        }
+
+        // 接单
+        function acceptOrder(orderId) {
+            post('/order/' + orderId + '/accept', {}, function(res) {
+                if (res.code === 200) {
+                    showAlert('接单成功！', 'success');
+                    loadAll();
+                } else {
+                    showAlert(res.message || '接单失败', 'error');
+                }
+            });
+        }
+
+        // 完成制作
+        function completeOrder(orderId) {
+            post('/order/' + orderId + '/complete', {}, function(res) {
+                if (res.code === 200) {
+                    showAlert('制作完成！', 'success');
+                    loadAll();
+                } else {
+                    showAlert(res.message || '操作失败', 'error');
+                }
+            });
+        }
+
+        // 加载所有数据
+        function loadAll() {
+            loadPending();
+            loadMaking();
+            loadCompleted();
+        }
+
+        // 初始化
+        loadAll();
+
+        // 定时刷新
+        setInterval(loadAll, 5000);
+    </script>
+</body>
+</html>

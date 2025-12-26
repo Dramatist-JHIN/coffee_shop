@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素咖啡店 - 管理员</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 头部 -->
+    <div class="header">
+        <h1>☕ 像素咖啡店</h1>
+        <div class="user-info">
+            <span id="userName"></span>
+            <span class="status" style="background:#FFD700;color:#2C1810;">管理员</span>
+            <button class="btn btn-small" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 标签页 -->
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('coffee')">咖啡管理</div>
+            <div class="tab" onclick="showTab('orders')">订单列表</div>
+            <div class="tab" onclick="showTab('stats')">统计数据</div>
+        </div>
+
+        <!-- 咖啡管理 -->
+        <div id="coffeeTab" class="tab-content">
+            <div class="toolbar">
+                <input type="text" id="searchKeyword" class="input" style="width:200px;" placeholder="搜索咖啡..." onkeyup="loadCoffees()">
+                <button class="btn btn-primary" onclick="openAddModal()">+ 添加咖啡</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>分类</th>
+                        <th>价格</th>
+                        <th>库存</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="coffeeTable"></tbody>
+            </table>
+            <div id="coffeeEmpty" class="empty" style="display:none;">
+                <div class="empty-icon">☕</div>
+                <p>暂无咖啡数据</p>
+            </div>
+        </div>
+
+        <!-- 订单列表 -->
+        <div id="ordersTab" class="tab-content" style="display:none;">
+            <div class="toolbar" style="flex-wrap: wrap; gap: 10px;">
+                <select id="orderStatus" class="select" style="width:120px;" onchange="loadOrders()">
+                    <option value="">全部状态</option>
+                    <option value="PENDING">待处理</option>
+                    <option value="MAKING">制作中</option>
+                    <option value="COMPLETED">已完成</option>
+                    <option value="CANCELLED">已取消</option>
+                </select>
+                <input type="text" id="customerName" class="input" style="width:120px;" placeholder="顾客名称" onkeyup="debounceLoadOrders()">
+                <input type="text" id="coffeeName" class="input" style="width:120px;" placeholder="咖啡名称" onkeyup="debounceLoadOrders()">
+                <input type="date" id="startDate" class="input" style="width:140px;" onchange="loadOrders()">
+                <span style="line-height:36px;">至</span>
+                <input type="date" id="endDate" class="input" style="width:140px;" onchange="loadOrders()">
+                <button class="btn" onclick="clearOrderFilters()">清空筛选</button>
+            </div>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>订单号</th>
+                        <th>顾客</th>
+                        <th>商品</th>
+                        <th>金额</th>
+                        <th>状态</th>
+                        <th>时间</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTable"></tbody>
+            </table>
+            <div id="orderEmpty" class="empty" style="display:none;">
+                <div class="empty-icon">📋</div>
+                <p>暂无订单</p>
+            </div>
+        </div>
+
+        <!-- 统计数据 -->
+        <div id="statsTab" class="tab-content" style="display:none;">
+            <div class="grid grid-3" style="margin-bottom:20px;">
+                <div class="stat-card">
+                    <div class="stat-value" id="statRevenue">¥0</div>
+                    <div class="stat-label">总销售额</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statCompleted">0</div>
+                    <div class="stat-label">已完成订单</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statPending">0</div>
+                    <div class="stat-label">待处理订单</div>
+                </div>
+            </div>
+
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-title">咖啡品种</div>
+                    <div class="stat-value" id="statCoffees" style="text-align:center; padding:20px;">0 种</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">库存预警</div>
+                    <div id="lowStockList"></div>
+                    <div id="lowStockEmpty" class="empty" style="display:none;">
+                        <p>库存充足</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑咖啡弹窗 -->
+    <div id="coffeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle">添加咖啡</span>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>咖啡名称 *</label>
+                <input type="text" id="coffeeName" class="input" placeholder="请输入名称">
+            </div>
+            <div class="form-group">
+                <label>描述</label>
+                <input type="text" id="coffeeDesc" class="input" placeholder="请输入描述">
+            </div>
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label>价格 *</label>
+                    <input type="number" id="coffeePrice" class="input" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>库存 *</label>
+                    <input type="number" id="coffeeStock" class="input" placeholder="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>分类</label>
+                <input type="text" id="coffeeCategory" class="input" placeholder="如：经典、特调">
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveCoffee()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 补货弹窗 -->
+    <div id="stockModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>补货 - <span id="stockCoffeeName"></span></span>
+                <button class="modal-close" onclick="closeStockModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>当前库存: <span id="currentStock"></span></label>
+            </div>
+            <div class="form-group">
+                <label>新库存数量</label>
+                <input type="number" id="newStock" class="input" placeholder="0">
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeStockModal()">取消</button>
+                <button class="btn btn-primary" onclick="updateStock()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // 检查登录
+        var user = checkLogin();
+        if (user) {
+            document.getElementById('userName').textContent = user.nickname || user.username;
+        }
+
+        var editingCoffeeId = null;
+        var stockCoffeeId = null;
+
+        // 切换标签页
+        function showTab(tab) {
+            var tabs = document.querySelectorAll('.tab');
+            tabs.forEach(function(t, i) {
+                t.className = (i === 0 && tab === 'coffee') || (i === 1 && tab === 'orders') || (i === 2 && tab === 'stats') ? 'tab active' : 'tab';
+            });
+
+            document.getElementById('coffeeTab').style.display = tab === 'coffee' ? 'block' : 'none';
+            document.getElementById('ordersTab').style.display = tab === 'orders' ? 'block' : 'none';
+            document.getElementById('statsTab').style.display = tab === 'stats' ? 'block' : 'none';
+
+            if (tab === 'orders') loadOrders();
+            if (tab === 'stats') loadStats();
+        }
+
+        // 加载咖啡列表
+        function loadCoffees() {
+            var keyword = document.getElementById('searchKeyword').value;
+            get('/coffee/page?keyword=' + encodeURIComponent(keyword), function(res) {
+                var table = document.getElementById('coffeeTable');
+                var empty = document.getElementById('coffeeEmpty');
+
+                if (res.code === 200 && res.data && res.data.records && res.data.records.length > 0) {
+                    table.innerHTML = '';
+                    empty.style.display = 'none';
+
+                    res.data.records.forEach(function(coffee) {
+                        var tr = document.createElement('tr');
+                        tr.innerHTML = '<td><strong>' + coffee.name + '</strong><div style="font-size:12px;color:#808080;">' + (coffee.description || '') + '</div></td>' +
+                            '<td>' + (coffee.category || '-') + '</td>' +
+                            '<td style="color:#8B4513;font-weight:bold;">¥' + coffee.price + '</td>' +
+                            '<td style="' + (coffee.stock < 10 ? 'color:#CD5C5C;font-weight:bold;' : '') + '">' + coffee.stock + '</td>' +
+                            '<td><span class="status ' + (coffee.status === 1 ? 'status-completed' : 'status-cancelled') + '">' + (coffee.status === 1 ? '上架' : '下架') + '</span></td>' +
+                            '<td><div class="actions">' +
+                            '<button class="btn btn-small" onclick="openEditModal(' + coffee.id + ')">编辑</button>' +
+                            '<button class="btn btn-small btn-warning" onclick="openStockModal(' + coffee.id + ', \'' + coffee.name + '\', ' + coffee.stock + ')">补货</button>' +
+                            '<button class="btn btn-small btn-danger" onclick="deleteCoffee(' + coffee.id + ', \'' + coffee.name + '\')">删除</button>' +
+                            '</div></td>';
+                        table.appendChild(tr);
+                    });
+                } else {
+                    table.innerHTML = '';
+                    empty.style.display = 'block';
+                }
+            });
+        }
+
+        // 打开添加弹窗
+        function openAddModal() {
+            editingCoffeeId = null;
+            document.getElementById('modalTitle').textContent = '添加咖啡';
+            document.getElementById('coffeeName').value = '';
+            document.getElementById('coffeeDesc').value = '';
+            document.getElementById('coffeePrice').value = '';
+            document.getElementById('coffeeStock').value = '';
+            document.getElementById('coffeeCategory').value = '';
+            document.getElementById('coffeeModal').className = 'modal show';
+        }
+
+        // 打开编辑弹窗
+        function openEditModal(id) {
+            get('/coffee/' + id, function(res) {
+                if (res.code === 200) {
+                    var coffee = res.data;
+                    editingCoffeeId = id;
+                    document.getElementById('modalTitle').textContent = '编辑咖啡';
+                    document.getElementById('coffeeName').value = coffee.name;
+                    document.getElementById('coffeeDesc').value = coffee.description || '';
+                    document.getElementById('coffeePrice').value = coffee.price;
+                    document.getElementById('coffeeStock').value = coffee.stock;
+                    document.getElementById('coffeeCategory').value = coffee.category || '';
+                    document.getElementById('coffeeModal').className = 'modal show';
+                }
+            });
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('coffeeModal').className = 'modal';
+        }
+
+        // 保存咖啡
+        function saveCoffee() {
+            var data = {
+                name: document.getElementById('coffeeName').value,
+                description: document.getElementById('coffeeDesc').value,
+                price: parseFloat(document.getElementById('coffeePrice').value),
+                stock: parseInt(document.getElementById('coffeeStock').value),
+                category: document.getElementById('coffeeCategory').value,
+                status: 1
+            };
+
+            if (!data.name || !data.price) {
+                showAlert('请填写名称和价格', 'warning');
+                return;
+            }
+
+            if (editingCoffeeId) {
+                put('/coffee/' + editingCoffeeId, data, function(res) {
+                    if (res.code === 200) {
+                        showAlert('修改成功', 'success');
+                        closeModal();
+                        loadCoffees();
+                    } else {
+                        showAlert(res.message || '修改失败', 'error');
+                    }
+                });
+            } else {
+                post('/coffee', data, function(res) {
+                    if (res.code === 200) {
+                        showAlert('添加成功', 'success');
+                        closeModal();
+                        loadCoffees();
+                    } else {
+                        showAlert(res.message || '添加失败', 'error');
+                    }
+                });
+            }
+        }
+
+        // 删除咖啡
+        function deleteCoffee(id, name) {
+            if (confirm('确定要删除 ' + name + ' 吗？')) {
+                del('/coffee/' + id, function(res) {
+                    if (res.code === 200) {
+                        showAlert('删除成功', 'success');
+                        loadCoffees();
+                    } else {
+                        showAlert(res.message || '删除失败', 'error');
+                    }
+                });
+            }
+        }
+
+        // 打开补货弹窗
+        function openStockModal(id, name, stock) {
+            stockCoffeeId = id;
+            document.getElementById('stockCoffeeName').textContent = name;
+            document.getElementById('currentStock').textContent = stock;
+            document.getElementById('newStock').value = stock;
+            document.getElementById('stockModal').className = 'modal show';
+        }
+
+        // 关闭补货弹窗
+        function closeStockModal() {
+            document.getElementById('stockModal').className = 'modal';
+        }
+
+        // 更新库存
+        function updateStock() {
+            var newStock = parseInt(document.getElementById('newStock').value);
+            put('/coffee/' + stockCoffeeId + '/stock?stock=' + newStock, {}, function(res) {
+                if (res.code === 200) {
+                    showAlert('补货成功', 'success');
+                    closeStockModal();
+                    loadCoffees();
+                    loadStats();
+                } else {
+                    showAlert(res.message || '补货失败', 'error');
+                }
+            });
+        }
+
+        // 防抖定时器
+        var orderSearchTimer = null;
+        function debounceLoadOrders() {
+            if (orderSearchTimer) clearTimeout(orderSearchTimer);
+            orderSearchTimer = setTimeout(loadOrders, 300);
+        }
+
+        // 清空订单筛选条件
+        function clearOrderFilters() {
+            document.getElementById('orderStatus').value = '';
+            document.getElementById('customerName').value = '';
+            document.getElementById('coffeeName').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            loadOrders();
+        }
+
+        // 加载订单列表
+        function loadOrders() {
+            var status = document.getElementById('orderStatus').value;
+            var customerName = document.getElementById('customerName').value;
+            var coffeeName = document.getElementById('coffeeName').value;
+            var startDate = document.getElementById('startDate').value;
+            var endDate = document.getElementById('endDate').value;
+
+            var url = '/order/page?pageSize=50';
+            if (status) url += '&status=' + encodeURIComponent(status);
+            if (customerName) url += '&customerName=' + encodeURIComponent(customerName);
+            if (coffeeName) url += '&coffeeName=' + encodeURIComponent(coffeeName);
+            if (startDate) url += '&startDate=' + encodeURIComponent(startDate);
+            if (endDate) url += '&endDate=' + encodeURIComponent(endDate);
+
+            get(url, function(res) {
+                var table = document.getElementById('orderTable');
+                var empty = document.getElementById('orderEmpty');
+
+                if (res.code === 200 && res.data && res.data.records && res.data.records.length > 0) {
+                    table.innerHTML = '';
+                    empty.style.display = 'none';
+
+                    res.data.records.forEach(function(order) {
+                        var itemsStr = '';
+                        if (order.items) {
+                            itemsStr = order.items.map(function(item) {
+                                return item.coffeeName + ' x' + item.quantity;
+                            }).join('<br>');
+                        }
+
+                        var tr = document.createElement('tr');
+                        tr.innerHTML = '<td>' + order.orderNo.slice(-8) + '</td>' +
+                            '<td>' + (order.customerName || '-') + '</td>' +
+                            '<td style="font-size:12px;">' + itemsStr + '</td>' +
+                            '<td style="color:#8B4513;font-weight:bold;">¥' + order.totalAmount + '</td>' +
+                            '<td><span class="' + getStatusClass(order.status) + '">' + getStatusName(order.status) + '</span></td>' +
+                            '<td style="font-size:12px;">' + formatTime(order.createdAt) + '</td>';
+                        table.appendChild(tr);
+                    });
+                } else {
+                    table.innerHTML = '';
+                    empty.style.display = 'block';
+                }
+            });
+        }
+
+        // 加载统计数据
+        function loadStats() {
+            get('/stats/dashboard', function(res) {
+                if (res.code === 200) {
+                    var data = res.data;
+                    document.getElementById('statRevenue').textContent = '¥' + (data.totalRevenue || 0);
+                    document.getElementById('statCompleted').textContent = data.completedOrders || 0;
+                    document.getElementById('statPending').textContent = data.pendingOrders || 0;
+                    document.getElementById('statCoffees').textContent = (data.totalCoffees || 0) + ' 种';
+
+                    var lowStockList = document.getElementById('lowStockList');
+                    var lowStockEmpty = document.getElementById('lowStockEmpty');
+
+                    if (data.lowStockCoffees && data.lowStockCoffees.length > 0) {
+                        lowStockList.innerHTML = '';
+                        lowStockEmpty.style.display = 'none';
+
+                        data.lowStockCoffees.forEach(function(coffee) {
+                            var div = document.createElement('div');
+                            div.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed #8B4513;';
+                            div.innerHTML = '<span>' + coffee.name + '</span>' +
+                                '<span style="color:#CD5C5C;font-weight:bold;">剩余 ' + coffee.stock + '</span>' +
+                                '<button class="btn btn-small btn-warning" onclick="openStockModal(' + coffee.id + ', \'' + coffee.name + '\', ' + coffee.stock + ')">补货</button>';
+                            lowStockList.appendChild(div);
+                        });
+                    } else {
+                        lowStockList.innerHTML = '';
+                        lowStockEmpty.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        // 初始化
+        loadCoffees();
+    </script>
+</body>
+</html>

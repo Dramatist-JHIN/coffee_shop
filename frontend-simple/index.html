@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>像素咖啡店 - 登录</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="icon">☕</div>
+                <h1>像素咖啡店</h1>
+                <p>8-BIT COFFEE SHOP</p>
+            </div>
+
+            <div class="card">
+                <div class="tabs">
+                    <div class="tab active" onclick="showTab('login')">登录</div>
+                    <div class="tab" onclick="showTab('register')">注册</div>
+                </div>
+
+                <!-- 登录表单 -->
+                <div id="loginForm" class="tab-content">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="loginUsername" class="input" placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="loginPassword" class="input" placeholder="请输入密码">
+                    </div>
+                    <div id="loginError" class="alert alert-error" style="display:none;"></div>
+                    <button class="btn btn-primary" style="width:100%;" onclick="doLogin()">进入咖啡店</button>
+                </div>
+
+                <!-- 注册表单 -->
+                <div id="registerForm" class="tab-content" style="display:none;">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="regUsername" class="input" placeholder="请输入用户名">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="regPassword" class="input" placeholder="请输入密码">
+                    </div>
+                    <div class="form-group">
+                        <label>昵称</label>
+                        <input type="text" id="regNickname" class="input" placeholder="请输入昵称">
+                    </div>
+                    <div id="regError" class="alert alert-error" style="display:none;"></div>
+                    <div id="regSuccess" class="alert alert-success" style="display:none;"></div>
+                    <button class="btn btn-primary" style="width:100%;" onclick="doRegister()">注册账号</button>
+                </div>
+            </div>
+
+            <!-- 演示账号 -->
+            <div class="card" style="margin-top:15px;">
+                <div class="card-title">演示账号</div>
+                <p style="margin-bottom:10px; font-size:12px; color:#808080;">点击自动填入：</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn btn-small" onclick="fillDemo('admin','123456')">管理员</button>
+                    <button class="btn btn-small" onclick="fillDemo('barista','123456')">咖啡师</button>
+                    <button class="btn btn-small" onclick="fillDemo('customer','123456')">顾客</button>
+                </div>
+            </div>
+
+            <!-- 角色说明 -->
+            <div class="card" style="margin-top:15px;">
+                <div class="card-title">角色说明</div>
+                <ul style="padding-left:20px; font-size:13px;">
+                    <li style="margin:8px 0;">👨‍💼 <b>管理员</b> - 管理咖啡菜单、查看订单统计</li>
+                    <li style="margin:8px 0;">👨‍🍳 <b>咖啡师</b> - 接单、制作咖啡</li>
+                    <li style="margin:8px 0;">🧑 <b>顾客</b> - 浏览菜单、下单购买</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // 切换标签
+        function showTab(tab) {
+            var tabs = document.querySelectorAll('.tab');
+            tabs[0].className = tab === 'login' ? 'tab active' : 'tab';
+            tabs[1].className = tab === 'register' ? 'tab active' : 'tab';
+
+            document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+            document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+        }
+
+        // 登录
+        function doLogin() {
+            var username = document.getElementById('loginUsername').value;
+            var password = document.getElementById('loginPassword').value;
+            var errorDiv = document.getElementById('loginError');
+
+            if (!username || !password) {
+                errorDiv.textContent = '请输入用户名和密码';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            post('/auth/login', { username: username, password: password }, function(res) {
+                if (res.code === 200) {
+                    saveLogin(res.data.token, res.data.user);
+                    redirectByRole(res.data.user.role);
+                } else {
+                    errorDiv.textContent = res.message || '登录失败';
+                    errorDiv.style.display = 'block';
+                }
+            });
+        }
+
+        // 注册
+        function doRegister() {
+            var username = document.getElementById('regUsername').value;
+            var password = document.getElementById('regPassword').value;
+            var nickname = document.getElementById('regNickname').value;
+            var errorDiv = document.getElementById('regError');
+            var successDiv = document.getElementById('regSuccess');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            if (!username || !password) {
+                errorDiv.textContent = '请输入用户名和密码';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            post('/auth/register', {
+                username: username,
+                password: password,
+                nickname: nickname || username,
+                role: 'CUSTOMER'
+            }, function(res) {
+                if (res.code === 200) {
+                    successDiv.textContent = '注册成功！请登录';
+                    successDiv.style.display = 'block';
+                    // 自动填入登录表单
+                    document.getElementById('loginUsername').value = username;
+                    document.getElementById('loginPassword').value = password;
+                    setTimeout(function() {
+                        showTab('login');
+                    }, 1500);
+                } else {
+                    errorDiv.textContent = res.message || '注册失败';
+                    errorDiv.style.display = 'block';
+                }
+            });
+        }
+
+        // 填入演示账号
+        function fillDemo(username, password) {
+            document.getElementById('loginUsername').value = username;
+            document.getElementById('loginPassword').value = password;
+            showTab('login');
+        }
+
+        // 如果已登录，跳转到对应页面
+        var user = getUser();
+        if (user) {
+            redirectByRole(user.role);
+        }
+    </script>
+</body>
+</html>
