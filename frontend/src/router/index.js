@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import CustomerView from '../views/CustomerView.vue'
 
 const routes = [
   {
@@ -14,8 +15,9 @@ const routes = [
   {
     path: '/customer',
     name: 'Customer',
-    component: () => import('../views/CustomerView.vue'),
-    meta: { requiresAuth: true, role: 'CUSTOMER' }
+    component: CustomerView // 直接使用导入的组件
+    //component: () => import('../views/CustomerView.vue'),
+    //meta: { requiresAuth: true, role: 'CUSTOMER' }
   },
   {
     path: '/barista',

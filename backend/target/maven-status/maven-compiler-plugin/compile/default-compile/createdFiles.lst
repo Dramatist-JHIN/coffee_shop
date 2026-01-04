@@ -11,7 +11,9 @@ com\coffee\entity\Order.class
 com\coffee\config\CorsConfig.class
 com\coffee\service\CoffeeService.class
 com\coffee\config\GlobalExceptionHandler.class
+com\coffee\controller\AIController.class
 com\coffee\common\OrderStatus.class
+com\coffee\controller\AIController$AIChatRequest.class
 com\coffee\entity\OrderItem.class
 com\coffee\service\OrderService.class
 com\coffee\common\Role.class
